@@ -1,0 +1,13 @@
+
+# shows different AES steps online
+http://www.keymolen.com/aes.jsp
+
+# Rijndael mix columns wikipedia
+https://en.wikipedia.org/wiki/Rijndael_mix_columns
+
+# MixColumns explanation
+http://www.angelfire.com/biz7/atleast/mix_columns.pdf
+
+# Finite Field arithmetic
+http://www.academickids.com/encyclopedia/index.php/Finite_field_arithmetic
+
