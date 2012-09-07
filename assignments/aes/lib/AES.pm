@@ -29,6 +29,9 @@ our @SBOX = (
     140, 161, 137,  13, 191, 230,  66, 104,  65, 153,  45,  15, 176,  84, 187,  22,
 );
 
+our $Nb = 4;  # Number of columns (32-bit words) comprising the State
+our $Nk = 4;  # Number of 32-bit words comprising the Cipher Key
+our $Nr = 10; # Number of rounds
 
 sub init {
     my $self = shift;
@@ -68,6 +71,47 @@ sub init {
     return;
 }
 
+sub key_expansion {
+    my ($self, @key, @w) = @_;
+
+#our $Nb = 4;  # Number of columns (32-bit words) comprising the State
+#our $Nk = 4;  # Number of 32-bit words comprising the Cipher Key
+#our $Nr = 10; # Number of rounds
+
+#KeyExpansion(byte key[4*Nk], word w[Nb*(Nr+1)], Nk)
+#begin
+#    word temp
+#
+#    i = 0
+#    while (i < Nk)
+#        w[i] = word(key[4*i], key[4*i+1], key[4*i+2], key[4*i+3])
+#        i = i+1
+#    end while
+#
+#    i = Nk
+#
+#    while (i < Nb * (Nr+1)]
+#        temp = w[i-1]
+#        if (i mod Nk = 0)
+#            temp = SubWord(RotWord(temp)) xor Rcon[i/Nk]
+#        else if (Nk > 6 and i mod Nk = 4)
+#            temp = SubWord(temp)
+#        end if
+#        w[i] = w[i-Nk] xor temp
+#        i = i + 1
+#    end while
+#end
+
+
+    my $temp;
+
+    my $i = 0;
+    while ($i < $Nk) {
+        $w[$i] = $key[4*$i] . $key[4*$i+1] . $key[4*$i+2], $key[$*i+3];
+        $i = $i+1;
+    }
+}
+
 sub sub_bytes {
     my ($self, $state) = @_;
 
@@ -88,78 +132,6 @@ sub sub_bytes {
     return $out;
 }
 
-sub sub_bytes_no_lookup {
-    my ($self, $state) = @_;
-
-    $self->init() unless $self->{s_box};
-
-    my $out = [];
-OUTER:
-    for my $row_num (0..$#$state) {
-        warn "LOOPING ROW [$row_num] IN STATE.";
-
-        for my $col_num (0..$#{ $state->[$row_num] }) {
-
-            my $b = $state->[$row_num][$col_num];
-            warn "GOT BYTE [" . sprintf("0x%x", $b) . "]";
-
-            my $inv = gf2_inv(8, $b);
-            warn "GOT INVERSE [" . sprintf("0x%x", $inv) . "]";
-
-            # transform to bit string
-            my $bit_str = unpack "B8", pack "C", $inv;
-            warn "GOT BIT STRING: [$bit_str]";
-            my @bits = split //, $bit_str;
-
-            my $byte = Math::FastGF2::Matrix->new(
-                rows    => 8,
-                cols    => 1,
-                width   => 1,
-            );
-
-            for my $i (0..$#bits) {
-                warn "- TO ROW [$i] ADD BIT [$bits[$i]]";
-                $byte->setval($i, 0, $bits[$i]);
-            }
-
-            # start affine transformation over GF(2)
-            # XXX: Something goes wrong here
-            my $trans_mat = $self->{sub_bytes_mul_mat}->multiply($byte);
-            warn "TRANSMAT ROWS: " . $trans_mat->ROWS;
-            warn "TRANSMAT COLS: " . $trans_mat->COLS;
-
-            # transfrom back to byte
-            my $trans_str = '';
-
-            for my $i (0..$trans_mat->ROWS - 1) {
-                my $bit = $trans_mat->getval($i, 0);
-                warn "ROW [$row_num], COL [$col_num] READ BIT [$bit]";
-                $trans_str .= $bit;
-            }
-
-            # we need to add [1, 1, 0, 0, 0, 1, 1, 0] to the transformation
-            # matrix. addition of polynomials in GF(2^n) is the same
-            # as XORing their byte representations
-            my $trans_byte = unpack "C", pack "B8", $trans_str;
-            my $add_byte   = unpack "C", pack "B8", "11000110";
-
-            my $final_byte = $trans_byte ^ $add_byte;
-            # end affine transformation over GF(2)
-
-            # lookup byte from SBOX, and that's our ret
-            #my $out_byte = $SBOX[$final_byte];
-            my $out_byte = $final_byte;
-            push @{ $out->[$row_num] }, $out_byte;
-
-            warn "GOT TRANS_STR [$trans_str], TRANS_BYTE [" . sprintf("0x%x", $trans_byte) . "], ADD_BYTE [" . sprintf("0x%x", $add_byte) ."]"
-                .", FINAL_BYTE [" . sprintf("0x%x", $final_byte) . "], OUT_BYTE [" . sprintf("0x%x", $out_byte) . "]";
-
-last OUTER;
-        }
-    }
-
-    return $out;
-}
 
 sub mix_columns {
     my ($self, $in) = @_;
@@ -234,6 +206,80 @@ sub rot_array {
 
     return @ret;
 }
+
+
+#sub sub_bytes_no_lookup {
+#    my ($self, $state) = @_;
+#
+#    $self->init() unless $self->{s_box};
+#
+#    my $out = [];
+#OUTER:
+#    for my $row_num (0..$#$state) {
+#        warn "LOOPING ROW [$row_num] IN STATE.";
+#
+#        for my $col_num (0..$#{ $state->[$row_num] }) {
+#
+#            my $b = $state->[$row_num][$col_num];
+#            warn "GOT BYTE [" . sprintf("0x%x", $b) . "]";
+#
+#            my $inv = gf2_inv(8, $b);
+#            warn "GOT INVERSE [" . sprintf("0x%x", $inv) . "]";
+#
+#            # transform to bit string
+#            my $bit_str = unpack "B8", pack "C", $inv;
+#            warn "GOT BIT STRING: [$bit_str]";
+#            my @bits = split //, $bit_str;
+#
+#            my $byte = Math::FastGF2::Matrix->new(
+#                rows    => 8,
+#                cols    => 1,
+#                width   => 1,
+#            );
+#
+#            for my $i (0..$#bits) {
+#                warn "- TO ROW [$i] ADD BIT [$bits[$i]]";
+#                $byte->setval($i, 0, $bits[$i]);
+#            }
+#
+#            # start affine transformation over GF(2)
+#            # XXX: Something goes wrong here
+#            my $trans_mat = $self->{sub_bytes_mul_mat}->multiply($byte);
+#            warn "TRANSMAT ROWS: " . $trans_mat->ROWS;
+#            warn "TRANSMAT COLS: " . $trans_mat->COLS;
+#
+#            # transfrom back to byte
+#            my $trans_str = '';
+#
+#            for my $i (0..$trans_mat->ROWS - 1) {
+#                my $bit = $trans_mat->getval($i, 0);
+#                warn "ROW [$row_num], COL [$col_num] READ BIT [$bit]";
+#                $trans_str .= $bit;
+#            }
+#
+#            # we need to add [1, 1, 0, 0, 0, 1, 1, 0] to the transformation
+#            # matrix. addition of polynomials in GF(2^n) is the same
+#            # as XORing their byte representations
+#            my $trans_byte = unpack "C", pack "B8", $trans_str;
+#            my $add_byte   = unpack "C", pack "B8", "11000110";
+#
+#            my $final_byte = $trans_byte ^ $add_byte;
+#            # end affine transformation over GF(2)
+#
+#            # lookup byte from SBOX, and that's our ret
+#            #my $out_byte = $SBOX[$final_byte];
+#            my $out_byte = $final_byte;
+#            push @{ $out->[$row_num] }, $out_byte;
+#
+#            warn "GOT TRANS_STR [$trans_str], TRANS_BYTE [" . sprintf("0x%x", $trans_byte) . "], ADD_BYTE [" . sprintf("0x%x", $add_byte) ."]"
+#                .", FINAL_BYTE [" . sprintf("0x%x", $final_byte) . "], OUT_BYTE [" . sprintf("0x%x", $out_byte) . "]";
+#
+#last OUTER;
+#        }
+#    }
+#
+#    return $out;
+#}
 
 1;
 
