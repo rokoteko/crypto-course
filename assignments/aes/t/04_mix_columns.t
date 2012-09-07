@@ -10,7 +10,6 @@ use Test::Deep;
 use AES;
 
 my $c = AES->new();
-$c->init();
 
 my $in  = [
     [0xd4, 0xe0, 0xb8, 0x1e],
