@@ -29,6 +29,14 @@ our @SBOX = (
     140, 161, 137,  13, 191, 230,  66, 104,  65, 153,  45,  15, 176,  84, 187,  22,
 );
 
+our @Rcon = (
+    0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,
+    0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a, 0x2f,
+    0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4,
+    0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91,
+);
+
+
 our $Nb = 4;  # Number of columns (32-bit words) comprising the State
 our $Nk = 4;  # Number of 32-bit words comprising the Cipher Key
 our $Nr = 10; # Number of rounds
@@ -108,20 +116,22 @@ sub key_expansion {
     $W[2] = pack "C4", @key[8..11];
     $W[3] = pack "C4", @key[12..15];
 
-    warn "W0: " . unpack("H*", $W[0]);
-    warn "W1: " . unpack("H*", $W[1]);
-    warn "W2: " . unpack("H*", $W[2]);
-    warn "W3: " . unpack("H*", $W[3]);
-
     my $i = $Nk;
     while ($i < $Nb * ($Nr+1)) {
         my $temp = $W[$i-1];
 
+        my $byte1 = $Rcon[($i/$Nk) - 1];
+        my $rcon  = pack "C4", $byte1, 0x00, 0x00, 0x00;
         if ($i % $Nk == 0) {
-#            $temp = $self->sub_word($self->rot_word($temp)) ^ $Rcon[$i/$Nk];
+            $temp = $self->sub_word($self->rot_word($temp)) ^ $rcon;
+        } elsif ($Nk > 6 and $i % $Nk == 4) {
+            $temp = $self->sub_word($temp);
         }
+        $W[$i] = $W[$i-$Nk] ^ $temp;
+        $i++;
     }
 
+    return @W;
 }
 
 sub sub_word {
@@ -130,8 +140,7 @@ sub sub_word {
 
     my @subs;
     for my $byte (@bytes) {
-        warn "LOOPING BYTE [" . sprintf("0x%x", $byte) . "]";
-        push @subs, $SBOX[$byte];
+            push @subs, $SBOX[$byte];
     }
 
     return pack "C4", @subs;
@@ -216,8 +225,11 @@ sub shift_rows {
 }
 
 sub rot_word {
-    my ($self, @in) = @_;
-    return $self->rot_array(3, @in);
+    my ($self, $in) = @_;
+
+    my @bytes = unpack "C4", $in;
+    my @rotated = $self->rot_array(3, @bytes);
+    return pack "C4", @rotated;
 }
 
 sub rot_array {
