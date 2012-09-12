@@ -72,7 +72,7 @@ sub init {
 }
 
 sub key_expansion {
-    my ($self, @key, @w) = @_;
+    my ($self, @key) = @_;
 
 #our $Nb = 4;  # Number of columns (32-bit words) comprising the State
 #our $Nk = 4;  # Number of 32-bit words comprising the Cipher Key
@@ -102,14 +102,39 @@ sub key_expansion {
 #    end while
 #end
 
+    my @W;
+    $W[0] = pack "C4", @key[0..3];
+    $W[1] = pack "C4", @key[4..7];
+    $W[2] = pack "C4", @key[8..11];
+    $W[3] = pack "C4", @key[12..15];
 
-    my $temp;
+    warn "W0: " . unpack("H*", $W[0]);
+    warn "W1: " . unpack("H*", $W[1]);
+    warn "W2: " . unpack("H*", $W[2]);
+    warn "W3: " . unpack("H*", $W[3]);
 
-    my $i = 0;
-    while ($i < $Nk) {
-        $w[$i] = $key[4*$i] . $key[4*$i+1] . $key[4*$i+2], $key[$*i+3];
-        $i = $i+1;
+    my $i = $Nk;
+    while ($i < $Nb * ($Nr+1)) {
+        my $temp = $W[$i-1];
+
+        if ($i % $Nk == 0) {
+#            $temp = $self->sub_word($self->rot_word($temp)) ^ $Rcon[$i/$Nk];
+        }
     }
+
+}
+
+sub sub_word {
+    my ($self, $word) = @_;
+    my @bytes = unpack "C4", $word;
+
+    my @subs;
+    for my $byte (@bytes) {
+        warn "LOOPING BYTE [" . sprintf("0x%x", $byte) . "]";
+        push @subs, $SBOX[$byte];
+    }
+
+    return pack "C4", @subs;
 }
 
 sub sub_bytes {
