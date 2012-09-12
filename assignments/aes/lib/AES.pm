@@ -79,6 +79,30 @@ sub init {
     return;
 }
 
+sub cipher {
+    my ($self, $i, $o, @W) = @_;
+    # TODO: implement!
+
+}
+
+sub add_round_key {
+    my ($self, $state, $round, @W) = @_;
+    # TODO: implement!
+
+    # xor each column with $W[round * Nb + c]
+    
+    # XXX: maybe change @W to be 2 dimensional array???
+        #
+    for my $r (0..3) {
+        for my $c (0..$Nb-1) {
+            $state->[$r][$c] ^= unpack "C", $W[$round * $Nb + $c + $r];
+        }
+    }
+
+    return;
+}
+
+
 sub key_expansion {
     my ($self, @key) = @_;
 
@@ -122,6 +146,7 @@ sub key_expansion {
 
         my $byte1 = $Rcon[($i/$Nk) - 1];
         my $rcon  = pack "C4", $byte1, 0x00, 0x00, 0x00;
+
         if ($i % $Nk == 0) {
             $temp = $self->sub_word($self->rot_word($temp)) ^ $rcon;
         } elsif ($Nk > 6 and $i % $Nk == 4) {
